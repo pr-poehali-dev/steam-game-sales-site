@@ -1,27 +1,49 @@
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import Icon from "@/components/ui/icon";
 import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import Icon from "@/components/ui/icon";
 
 // Import components
 import Header from "@/components/Header";
 import HeroSection from "@/components/HeroSection";
 import GameCard from "@/components/GameCard";
 import GameModal from "@/components/GameModal";
+import GameTabs from "@/components/GameTabs";
+import Footer from "@/components/Footer";
+
+interface Game {
+  id: number;
+  title: string;
+  price: string;
+  originalPrice: string | null;
+  discount: string | null;
+  rating: number;
+  genre: string;
+  image: string;
+  steamKey: boolean;
+  description: string;
+}
+
+interface CartItem {
+  id: number;
+  title: string;
+  price: string;
+  image: string;
+  quantity: number;
+}
 
 const Index = () => {
   const [searchTerm, setSearchTerm] = useState("");
-  const [cart, setCart] = useState<Array<{id: number, title: string, price: string, image: string, quantity: number}>>([]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const [selectedGame, setSelectedGame] = useState<any>(null);
+  const [selectedGame, setSelectedGame] = useState<Game | null>(null);
   const [isGameModalOpen, setIsGameModalOpen] = useState(false);
   const [priceRange, setPriceRange] = useState([0, 2000]);
   const [selectedGenre, setSelectedGenre] = useState("all");
-  const [filteredGames, setFilteredGames] = useState<typeof featuredGames>([]);
+  const [filteredGames, setFilteredGames] = useState<Game[]>([]);
 
-  const featuredGames = [
+  const featuredGames: Game[] = [
     {
       id: 1,
       title: "Mystic Legends RPG",
@@ -87,7 +109,7 @@ const Index = () => {
   ];
 
   // Functions for cart and filtering
-  const addToCart = (game: typeof featuredGames[0]) => {
+  const addToCart = (game: Game) => {
     const existingItem = cart.find(item => item.id === game.id);
     if (existingItem) {
       setCart(cart.map(item => 
@@ -127,7 +149,7 @@ const Index = () => {
     }, 0);
   };
 
-  const openGameModal = (game: typeof featuredGames[0]) => {
+  const openGameModal = (game: Game) => {
     setSelectedGame(game);
     setIsGameModalOpen(true);
   };
@@ -163,10 +185,15 @@ const Index = () => {
     setFilteredGames(filtered);
   }, [searchTerm, selectedGenre, priceRange]);
 
+  const handleBuyNow = (game: Game) => {
+    addToCart(game);
+    setIsCartOpen(true);
+  };
+
   return (
     <div className="min-h-screen bg-background">
-      {/* Header Component */}
-      <Header
+      {/* Header */}
+      <Header 
         cart={cart}
         isCartOpen={isCartOpen}
         setIsCartOpen={setIsCartOpen}
@@ -203,38 +230,11 @@ const Index = () => {
       </section>
 
       {/* Tabs Section */}
-      <section className="py-16 bg-card/30">
-        <div className="container mx-auto px-4">
-          <Tabs defaultValue="new" className="w-full">
-            <TabsList className="grid w-full max-w-md mx-auto grid-cols-3 mb-12">
-              <TabsTrigger value="new" id="new">
-                <Icon name="Sparkles" className="mr-2" size={16} />
-                Новинки
-              </TabsTrigger>
-              <TabsTrigger value="sales" id="sales">
-                <Icon name="Percent" className="mr-2" size={16} />
-                Скидки
-              </TabsTrigger>
-              <TabsTrigger value="top">
-                <Icon name="TrendingUp" className="mr-2" size={16} />
-                Топ
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="new" className="space-y-8">
-              <div className="text-center">
-                <h3 className="text-2xl font-bold mb-4">🆕 Новые поступления</h3>
-                <p className="text-muted-foreground mb-8">Самые свежие игры в нашем каталоге</p>
-              </div>
-              <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {featuredGames.slice(0, 3).map((game) => (
-                  <GameCard
-                    key={`new-${game.id}`}
-                    game={game}
-                    onGameClick={openGameModal}
-                    onAddToCart={addToCart}
-                    variant="compact"
-                  />
+      <GameTabs
+        games={featuredGames}
+        onGameClick={openGameModal}
+        onAddToCart={addToCart}
+      />
                 ))}
               </div>
             </TabsContent>
@@ -369,57 +369,9 @@ const Index = () => {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-card/50 py-12">
-        <div className="container mx-auto px-4">
-          <div className="grid md:grid-cols-4 gap-8">
-            <div>
-              <h4 className="font-bold text-lg mb-4 gradient-text">SteamKeys Store</h4>
-              <p className="text-muted-foreground">
-                Надежный магазин Steam-ключей с мгновенной доставкой
-              </p>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-4">Каталог</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary">Новинки</a></li>
-                <li><a href="#" className="hover:text-primary">Скидки</a></li>
-                <li><a href="#" className="hover:text-primary">Топ игры</a></li>
-                <li><a href="#" className="hover:text-primary">Жанры</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-4">Поддержка</h4>
-              <ul className="space-y-2 text-sm text-muted-foreground">
-                <li><a href="#" className="hover:text-primary">FAQ</a></li>
-                <li><a href="#" className="hover:text-primary">Контакты</a></li>
-                <li><a href="#" className="hover:text-primary">Гарантии</a></li>
-                <li><a href="#" className="hover:text-primary">Возврат</a></li>
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-semibold mb-4">Следите за нами</h4>
-              <div className="flex space-x-4">
-                <Button variant="ghost" size="icon">
-                  <Icon name="Github" size={20} />
-                </Button>
-                <Button variant="ghost" size="icon">
-                  <Icon name="Twitter" size={20} />
-                </Button>
-                <Button variant="ghost" size="icon">
-                  <Icon name="Instagram" size={20} />
-                </Button>
-              </div>
-            </div>
-          </div>
-          <div className="border-t border-border mt-8 pt-8 text-center">
-            <p className="text-muted-foreground">
-              © 2024 SteamKeys Store. Все права защищены.
-            </p>
-          </div>
-        </div>
-      </footer>
+      <Footer />
 
-      {/* Game Details Modal Component */}
+      {/* Game Details Modal */}
       <GameModal
         game={selectedGame}
         isOpen={isGameModalOpen}
