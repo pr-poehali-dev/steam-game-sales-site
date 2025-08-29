@@ -3,11 +3,22 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Slider } from "@/components/ui/slider";
 import Icon from "@/components/ui/icon";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const Index = () => {
   const [searchTerm, setSearchTerm] = useState("");
+  const [cart, setCart] = useState<Array<{id: number, title: string, price: string, image: string, quantity: number}>>([]);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [selectedGame, setSelectedGame] = useState<any>(null);
+  const [isGameModalOpen, setIsGameModalOpen] = useState(false);
+  const [priceRange, setPriceRange] = useState([0, 2000]);
+  const [selectedGenre, setSelectedGenre] = useState("all");
+  const [filteredGames, setFilteredGames] = useState<typeof featuredGames>([]);
 
   const featuredGames = [
     {
@@ -74,6 +85,78 @@ const Index = () => {
     }
   ];
 
+  // Functions for cart and filtering
+  const addToCart = (game: typeof featuredGames[0]) => {
+    const existingItem = cart.find(item => item.id === game.id);
+    if (existingItem) {
+      setCart(cart.map(item => 
+        item.id === game.id 
+          ? { ...item, quantity: item.quantity + 1 }
+          : item
+      ));
+    } else {
+      setCart([...cart, {
+        id: game.id,
+        title: game.title,
+        price: game.price,
+        image: game.image,
+        quantity: 1
+      }]);
+    }
+  };
+
+  const removeFromCart = (id: number) => {
+    setCart(cart.filter(item => item.id !== id));
+  };
+
+  const updateQuantity = (id: number, quantity: number) => {
+    if (quantity <= 0) {
+      removeFromCart(id);
+    } else {
+      setCart(cart.map(item => 
+        item.id === id ? { ...item, quantity } : item
+      ));
+    }
+  };
+
+  const getTotalPrice = () => {
+    return cart.reduce((total, item) => {
+      const price = parseInt(item.price.replace('₽', '').replace(',', ''));
+      return total + (price * item.quantity);
+    }, 0);
+  };
+
+  const openGameModal = (game: typeof featuredGames[0]) => {
+    setSelectedGame(game);
+    setIsGameModalOpen(true);
+  };
+
+  // Filter games based on search, price, and genre
+  useEffect(() => {
+    let filtered = [...featuredGames];
+
+    // Filter by search term
+    if (searchTerm) {
+      filtered = filtered.filter(game => 
+        game.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        game.genre.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    // Filter by genre
+    if (selectedGenre !== "all") {
+      filtered = filtered.filter(game => game.genre === selectedGenre);
+    }
+
+    // Filter by price
+    filtered = filtered.filter(game => {
+      const price = parseInt(game.price.replace('₽', '').replace(',', ''));
+      return price >= priceRange[0] && price <= priceRange[1];
+    });
+
+    setFilteredGames(filtered);
+  }, [searchTerm, selectedGenre, priceRange]);
+
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
@@ -92,9 +175,79 @@ const Index = () => {
               </nav>
             </div>
             <div className="flex items-center space-x-4">
-              <Button variant="ghost" size="icon">
-                <Icon name="ShoppingCart" size={20} />
-              </Button>
+              <Sheet open={isCartOpen} onOpenChange={setIsCartOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="ghost" size="icon" className="relative">
+                    <Icon name="ShoppingCart" size={20} />
+                    {cart.length > 0 && (
+                      <Badge className="absolute -top-2 -right-2 h-5 w-5 flex items-center justify-center p-0 text-xs">
+                        {cart.reduce((total, item) => total + item.quantity, 0)}
+                      </Badge>
+                    )}
+                  </Button>
+                </SheetTrigger>
+                <SheetContent>
+                  <SheetHeader>
+                    <SheetTitle>Корзина</SheetTitle>
+                    <SheetDescription>
+                      {cart.length === 0 ? "Ваша корзина пуста" : `${cart.length} товар(ов) в корзине`}
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="mt-6 space-y-4">
+                    {cart.map((item) => (
+                      <div key={item.id} className="flex items-center space-x-4 p-4 border rounded-lg">
+                        <img src={item.image} alt={item.title} className="w-16 h-16 object-cover rounded" />
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-sm">{item.title}</h4>
+                          <p className="text-sm text-primary font-bold">{item.price}</p>
+                        </div>
+                        <div className="flex items-center space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => updateQuantity(item.id, item.quantity - 1)}
+                          >
+                            <Icon name="Minus" size={12} />
+                          </Button>
+                          <span className="w-8 text-center">{item.quantity}</span>
+                          <Button 
+                            variant="outline" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => updateQuantity(item.id, item.quantity + 1)}
+                          >
+                            <Icon name="Plus" size={12} />
+                          </Button>
+                          <Button 
+                            variant="destructive" 
+                            size="icon" 
+                            className="h-8 w-8"
+                            onClick={() => removeFromCart(item.id)}
+                          >
+                            <Icon name="Trash2" size={12} />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {cart.length > 0 && (
+                    <div className="mt-6 space-y-4">
+                      <div className="flex justify-between items-center text-lg font-bold">
+                        <span>Итого:</span>
+                        <span className="text-primary">₽{getTotalPrice().toLocaleString()}</span>
+                      </div>
+                      <Button className="w-full" size="lg">
+                        <Icon name="CreditCard" className="mr-2" size={20} />
+                        Оформить заказ
+                      </Button>
+                      <p className="text-sm text-muted-foreground text-center">
+                        После оплаты Steam-ключи будут отправлены автоматически
+                      </p>
+                    </div>
+                  )}
+                </SheetContent>
+              </Sheet>
               <Button variant="ghost" size="icon">
                 <Icon name="User" size={20} />
               </Button>
@@ -113,7 +266,7 @@ const Index = () => {
           <p className="text-xl text-muted-foreground mb-8 animate-fade-in">
             Мгновенная выдача ключей • Гарантия подлинности • Поддержка 24/7
           </p>
-          <div className="max-w-md mx-auto mb-8">
+          <div className="max-w-2xl mx-auto mb-8 space-y-4">
             <div className="relative">
               <Icon name="Search" className="absolute left-3 top-3 text-muted-foreground" size={20} />
               <Input
@@ -122,6 +275,41 @@ const Index = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
+            </div>
+            
+            {/* Filters */}
+            <div className="flex flex-wrap gap-4 justify-center">
+              <div className="flex items-center space-x-2">
+                <Icon name="Filter" size={16} />
+                <span className="text-sm">Фильтры:</span>
+              </div>
+              <Select value={selectedGenre} onValueChange={setSelectedGenre}>
+                <SelectTrigger className="w-[140px]">
+                  <SelectValue placeholder="Жанр" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Все жанры</SelectItem>
+                  <SelectItem value="RPG">RPG</SelectItem>
+                  <SelectItem value="Racing">Racing</SelectItem>
+                  <SelectItem value="Shooter">Shooter</SelectItem>
+                  <SelectItem value="Action">Action</SelectItem>
+                  <SelectItem value="Strategy">Strategy</SelectItem>
+                  <SelectItem value="Adventure">Adventure</SelectItem>
+                </SelectContent>
+              </Select>
+              
+              <div className="flex items-center space-x-2 bg-card/50 px-3 py-2 rounded-lg border">
+                <span className="text-sm whitespace-nowrap">Цена:</span>
+                <span className="text-xs text-muted-foreground">₽{priceRange[0]}</span>
+                <Slider
+                  value={priceRange}
+                  onValueChange={setPriceRange}
+                  max={2000}
+                  step={100}
+                  className="w-24"
+                />
+                <span className="text-xs text-muted-foreground">₽{priceRange[1]}</span>
+              </div>
             </div>
           </div>
           <div className="flex flex-wrap justify-center gap-4">
@@ -146,9 +334,9 @@ const Index = () => {
         <div className="container mx-auto px-4">
           <h3 className="text-3xl font-bold text-center mb-12">🔥 Популярные игры</h3>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {featuredGames.map((game) => (
+            {filteredGames.map((game) => (
               <Card key={game.id} className="game-card group">
-                <div className="relative">
+                <div className="relative cursor-pointer" onClick={() => openGameModal(game)}>
                   <img 
                     src={game.image} 
                     alt={game.title}
@@ -163,10 +351,15 @@ const Index = () => {
                     <Icon name="Key" className="mr-1" size={12} />
                     Steam Key
                   </Badge>
+                  <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                    <Icon name="Eye" size={24} className="text-white" />
+                  </div>
                 </div>
                 <CardHeader>
                   <div className="flex justify-between items-start">
-                    <CardTitle className="text-lg">{game.title}</CardTitle>
+                    <CardTitle className="text-lg cursor-pointer hover:text-primary" onClick={() => openGameModal(game)}>
+                      {game.title}
+                    </CardTitle>
                     <div className="flex items-center space-x-1 text-sm text-yellow-400">
                       <Icon name="Star" size={14} fill="currentColor" />
                       <span>{game.rating}</span>
@@ -186,7 +379,7 @@ const Index = () => {
                       </span>
                     )}
                   </div>
-                  <Button className="hover-scale">
+                  <Button className="hover-scale" onClick={() => addToCart(game)}>
                     <Icon name="ShoppingCart" className="mr-2" size={16} />
                     Купить
                   </Button>
@@ -236,7 +429,7 @@ const Index = () => {
                       <CardTitle className="text-base">{game.title}</CardTitle>
                       <div className="flex justify-between items-center">
                         <span className="text-lg font-bold text-primary">{game.price}</span>
-                        <Button size="sm">Купить</Button>
+                        <Button size="sm" onClick={() => addToCart(game)}>Купить</Button>
                       </div>
                     </CardHeader>
                   </Card>
@@ -271,7 +464,7 @@ const Index = () => {
                             {game.originalPrice}
                           </span>
                         </div>
-                        <Button size="sm">Купить</Button>
+                        <Button size="sm" onClick={() => addToCart(game)}>Купить</Button>
                       </div>
                     </CardHeader>
                   </Card>
@@ -304,7 +497,7 @@ const Index = () => {
                           <Icon name="Star" size={14} className="text-yellow-400" fill="currentColor" />
                           <span className="text-sm">{game.rating}</span>
                         </div>
-                        <Button size="sm">Купить</Button>
+                        <Button size="sm" onClick={() => addToCart(game)}>Купить</Button>
                       </div>
                     </CardHeader>
                   </Card>
@@ -434,6 +627,120 @@ const Index = () => {
           </div>
         </div>
       </footer>
+
+      {/* Game Details Modal */}
+      <Dialog open={isGameModalOpen} onOpenChange={setIsGameModalOpen}>
+        <DialogContent className="max-w-2xl">
+          {selectedGame && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="text-2xl gradient-text">{selectedGame.title}</DialogTitle>
+                <DialogDescription className="text-lg">{selectedGame.description}</DialogDescription>
+              </DialogHeader>
+              <div className="space-y-6">
+                <div className="relative">
+                  <img 
+                    src={selectedGame.image} 
+                    alt={selectedGame.title}
+                    className="w-full h-64 object-cover rounded-lg"
+                  />
+                  {selectedGame.discount && (
+                    <Badge className="absolute top-4 left-4 bg-secondary text-secondary-foreground text-lg px-3 py-1">
+                      {selectedGame.discount}
+                    </Badge>
+                  )}
+                </div>
+                
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center space-x-2">
+                      <Icon name="Star" size={16} className="text-yellow-400" fill="currentColor" />
+                      <span className="font-semibold">Рейтинг: {selectedGame.rating}/5</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Icon name="Tag" size={16} className="text-primary" />
+                      <span>Жанр: <Badge variant="outline">{selectedGame.genre}</Badge></span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Icon name="Key" size={16} className="text-primary" />
+                      <span>Steam Key - мгновенная доставка</span>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <Icon name="Shield" size={16} className="text-green-500" />
+                      <span>100% гарантия активации</span>
+                    </div>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <div className="text-center">
+                      <div className="flex items-center justify-center space-x-2 mb-2">
+                        <span className="text-3xl font-bold text-primary">{selectedGame.price}</span>
+                        {selectedGame.originalPrice && (
+                          <span className="text-lg text-muted-foreground line-through">
+                            {selectedGame.originalPrice}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4">
+                        Ключ будет отправлен на email сразу после оплаты
+                      </p>
+                      <div className="space-y-2">
+                        <Button 
+                          className="w-full" 
+                          size="lg"
+                          onClick={() => {
+                            addToCart(selectedGame);
+                            setIsGameModalOpen(false);
+                            setIsCartOpen(true);
+                          }}
+                        >
+                          <Icon name="ShoppingCart" className="mr-2" size={20} />
+                          Добавить в корзину
+                        </Button>
+                        <Button 
+                          variant="secondary" 
+                          className="w-full"
+                          onClick={() => {
+                            addToCart(selectedGame);
+                            setIsGameModalOpen(false);
+                          }}
+                        >
+                          <Icon name="Zap" className="mr-2" size={20} />
+                          Купить сейчас
+                        </Button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="border-t pt-4">
+                  <h4 className="font-semibold mb-2">Системные требования:</h4>
+                  <div className="grid md:grid-cols-2 gap-4 text-sm text-muted-foreground">
+                    <div>
+                      <strong>Минимальные:</strong>
+                      <ul className="list-disc list-inside mt-1 space-y-1">
+                        <li>Windows 10 64-bit</li>
+                        <li>Intel Core i5-2500K / AMD FX-6300</li>
+                        <li>8 GB RAM</li>
+                        <li>GTX 770 / R9 280X</li>
+                      </ul>
+                    </div>
+                    <div>
+                      <strong>Рекомендуемые:</strong>
+                      <ul className="list-disc list-inside mt-1 space-y-1">
+                        <li>Windows 11 64-bit</li>
+                        <li>Intel Core i7-8700K / AMD Ryzen 5 3600</li>
+                        <li>16 GB RAM</li>
+                        <li>RTX 3060 / RX 6700 XT</li>
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
